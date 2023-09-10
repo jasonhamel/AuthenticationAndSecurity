@@ -2,12 +2,13 @@ import express from "express";
 import bodyParser from "body-parser";
 import mongoose from "mongoose";
 import "dotenv/config";
-import md5 from "md5";
+import bcrypt from "bcrypt";
 
 const app = express();
 app.use(express.static("public"));
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
+const saltRounds = 10;
 
 mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true });
 
@@ -35,7 +36,7 @@ app.post("/login", (req, res) => {
   const enteredPassword = req.body.password;
   User.findOne({ username: enteredUsername })
     .then((foundUser) => {
-      if (foundUser.password === md5(enteredPassword)) {
+      if (bcrypt.compareSync(enteredPassword, foundUser.password)) {
         res.render("secrets");
       }
     })
@@ -45,10 +46,12 @@ app.post("/login", (req, res) => {
     });
 });
 
-app.post("/register", (req, res) => {
+app.post("/register", async (req, res) => {
+  const salt = await bcrypt.genSalt(saltRounds);
+  const hash = await bcrypt.hash(req.body.password, salt);
   const newUser = new User({
     username: req.body.username,
-    password: md5(req.body.password),
+    password: hash,
   });
   newUser
     .save()
